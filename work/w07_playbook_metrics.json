@@ -1,0 +1,10 @@
+{
+  "total_pages": 30000,
+  "flagged_review_refresh": 7234,
+  "reason_code_counts": {
+    "FRESH_NO_ACTION": 20655,
+    "STALE_HIGH_VOLUME": 7234,
+    "STALE_LOW_VOLUME": 2111
+  },
+  "note": "Ranked queue built on Week-4 rule (is_stale x has_volume x impressions_90d), validated Week 5-6."
+}
