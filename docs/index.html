@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Which Content Pages Actually Deserve a Refresh?</title>
+<style>
+  body { font-family: Georgia, 'Times New Roman', serif; max-width: 720px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #222; }
+  h1 { font-size: 1.8em; margin-bottom: 0.2em; }
+  h2 { font-size: 1.3em; margin-top: 2em; border-bottom: 1px solid #ddd; padding-bottom: 0.3em; }
+  .subtitle { color: #666; font-style: italic; margin-bottom: 2em; }
+  table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+  th, td { border: 1px solid #ccc; padding: 8px 12px; text-align: left; }
+  th { background: #f5f5f5; }
+  img { max-width: 100%; height: auto; margin: 1em 0; border: 1px solid #eee; }
+  .caption { font-size: 0.9em; color: #555; margin-top: -0.5em; }
+  code { background: #f5f5f5; padding: 2px 5px; border-radius: 3px; }
+  pre { background: #f5f5f5; padding: 12px; overflow-x: auto; border-radius: 5px; }
+  .abstract { background: #fafafa; padding: 1.2em; border-left: 3px solid #4a90d9; margin: 1.5em 0; }
+</style>
+</head>
+<body>
+
+<h1>Which Content Pages Actually Deserve a Refresh?</h1>
+<p class="subtitle">A small, honest study of staleness, visibility, and decline in a real content portfolio</p>
+
+<div class="abstract">
+<strong>Abstract.</strong> Content teams have more pages than time to review them, and "just refresh everything old" is not a plan — it's a guess. This study asks a narrower question: using only signals knowable before the fact, can staleness and visibility together point to pages actually worth a human's attention? Working with FlyRank's 30,000-page starter dataset across 32 clients, I built a transparent rule baseline, then a Logistic Regression model, and tested both under a client-grouped validation split rather than a random one. The model showed a modest, honest edge over the rule at the top of the ranking (precision@50 of 0.44 vs. 0.28), but its overall ability to tell declining pages from stable ones stayed close to chance (ROC-AUC ≈ 0.56). The result is not a strong predictor — it's a better-than-nothing sorting tool, and this paper says so plainly.
+</div>
+
+<h2>Introduction</h2>
+<p>Every content team eventually hits the same wall: too many pages, not enough hours to review them one by one. Someone has to decide what gets looked at first, and usually that decision is made informally — a gut feeling about which pages "feel" old.</p>
+<p>That's the decision this project supports: given a portfolio of content pages, which ones should a human review first for a possible refresh? A wrong call here isn't catastrophic either way — flagging a fine page costs a few minutes; missing a genuinely declining one costs a quieter loss. That asymmetry is why this stays a decision-support tool, not an automated one.</p>
+
+<h2>Data</h2>
+<p>This study uses FlyRank's starter dataset: <strong>30,000 content pages across 32 pseudonymized clients</strong>, with trailing-90-day search and engagement metrics per page (GSC and GA4 sourced).</p>
+<p><strong>Excluded, and why:</strong></p>
+<ul>
+<li><code>trend_direction</code>, <code>trend_pct</code> — these define the label; using them as inputs means the model reads the answer first.</li>
+<li><code>content_id</code>, <code>client_id</code> — pseudonyms, used only for grouping/splitting.</li>
+<li>Rows where <code>avg_position == 0</code> (1,205) — means "no ranking data," not rank zero.</li>
+</ul>
+<p>No client names, domains, or real search queries appear anywhere in this study.</p>
+
+<h2>Methodology</h2>
+<p><strong>Baseline:</strong> A page is worth reviewing if it's gone stale (90+ days since update) <em>and</em> still has real visibility (300+ impressions). No fitted weights — a plain, readable rule. Both underlying signals were checked against decline rate first and came back <strong>MIXED</strong> — real pattern in the bulk of the data, weaker at the tails. Disclosed, not hidden.</p>
+<p><strong>Model:</strong> Logistic Regression — binary target, interpretable coefficients, the natural step up from a hand-written rule.</p>
+<p><strong>Label:</strong> <code>is_declining</code> = 1 when 30-day impressions fell &gt;20% vs. the prior 30 days.</p>
+<p><strong>Validation design:</strong> Client-grouped 80/20 split, not random — a random split let the same model score 0.623 ROC-AUC by partially memorizing clients it had already seen; the grouped split scored 0.559. That six-point gap is the honest cost of the correct split.</p>
+<p><strong>Leakage check:</strong> Deliberately added the label-source column as a feature to test the setup — AUC jumped to a perfect 1.000, confirming leakage would be caught. The real model excludes it.</p>
+
+<h2>Results</h2>
+<table>
+<tr><th>Method</th><th>precision@50</th><th>ROC-AUC</th></tr>
+<tr><td>Rule baseline</td><td>0.28</td><td>—</td></tr>
+<tr><td>Logistic Regression</td><td><strong>0.44</strong></td><td>0.559</td></tr>
+</table>
+<p><em>Base rate (majority class): 0.540 — kept next to every number above.</em></p>
+
+<img src="img/model_vs_baseline.png" alt="Model vs baseline precision at 50">
+<p class="caption">The model outperforms the rule at the top of the ranking, though both stay modest against the base rate.</p>
+
+<img src="img/split_comparison.png" alt="Random vs grouped split ROC-AUC">
+<p class="caption">The honest, client-grouped split costs 6 points of AUC compared to a random split — and that drop is the number worth trusting.</p>
+
+<p>The model struggles most with genuinely fresh content (0-30 day tier: 53.8% accuracy, barely above chance). Inspected wrong cases were all recently-updated pages flagged as risky anyway — the model leans hard on low click counts, sometimes overriding a clear freshness signal.</p>
+<p>A genuine surprise: whether keyword-context data was <em>missing</em> turned out to be a real signal — pages missing that context leaned toward decline, tracing back to a content-type pattern in the data.</p>
+
+<h2>Limitations &amp; honest framing</h2>
+<p>Observational study, one 90-day snapshot — no claim that refreshing a page <em>causes</em> recovery, only that some pages look worth reviewing first. Model discrimination is weak (ROC-AUC ≈ 0.56); treat any single score as a starting point, not a verdict. Not tested on clients outside this dataset. Some flags likely reflect data artifacts (e.g. zero CTR from a tracking issue) rather than a real content problem — human review is required before any action.</p>
+
+<h2>Ranked recommendations</h2>
+<p>7,234 of 30,000 pages are flagged <code>REVIEW_REFRESH</code>, each with a reason code. An editor works the queue top-down, checking title/metadata/content before acting — the tool orders the work, it doesn't do it. Pages already strong on position and CTR that still got flagged are known weak picks; zero-click pages need a tracking check before a rewrite.</p>
+<p><strong>Not to automate:</strong> publishing changes from the score alone, treating the score as a guarantee, or deprioritizing a page without human confirmation.</p>
+
+<h2>Reproducibility</h2>
+<p>Full code in the public repo. To rerun from a fresh clone:</p>
+<pre>git clone https://github.com/ainasarfaraz343-a11y/flyrank-internship.git</pre>
+<p>Then run, in order: <code>w04_baseline_score.ipynb</code> → <code>w05_model.ipynb</code> → <code>w06_validation_audit.ipynb</code> → <code>w07_action_playbook.ipynb</code> → <code>capstone.ipynb</code>. Random seed 42 throughout. Environment: Google Colab default Python/pandas/scikit-learn.</p>
+<p><strong>Repo:</strong> <a href="https://github.com/ainasarfaraz343-a11y/flyrank-internship">github.com/ainasarfaraz343-a11y/flyrank-internship</a></p>
+
+<h2>Acknowledgments &amp; data credit</h2>
+<p>Built on the FlyRank ML Internship dataset — <a href="https://flyrank.ai" target="_blank">flyrank.ai</a>.</p>
+
+</body>
+</html>
